@@ -384,7 +384,8 @@
 <footer class="site-footer">
   Based on: <a href="https://doi.org/10.1111/jgs.18372" target="_blank">AGS 2023 Beers Criteria®</a> — <em>J Am Geriatr Soc.</em> 2023;71(7):2052–2081 · For educational use only · Not for clinical decision-making<br>
   Tool designed by Kenneth L. Miller, PT, DPT, PhD, FNAP<br>
-  <span style="color:rgba(255,255,255,0.45);font-size:11px;">This tool was not developed by, reviewed by, or endorsed by the Medical University of South Carolina or any of its colleges, departments, or affiliated entities.</span>
+  <span style="color:rgba(255,255,255,0.45);font-size:11px;">This tool was not developed by, reviewed by, or endorsed by the Medical University of South Carolina or any of its colleges, departments, or affiliated entities.</span><br>
+  <span style="color:rgba(255,255,255,0.45);font-size:11px;">Anonymous usage counts (page views and which tab is used) are collected with GoatCounter, which uses no cookies. They never include patient information, drug names or medication lists.</span>
 </footer>
 
 <script>
@@ -1001,6 +1002,108 @@ function switchTab(id, btn) {
 // Init
 showSingleEmpty();
 document.getElementById("drugInput").focus();
+</script>
+<script>
+/* ===== Usage counts (GoatCounter) =====
+   Counts how often each tab is opened and used. Nothing typed, searched or selected is ever sent,
+   including drug names, patient name or ID, age or date of birth, and medication lists.
+   Only these event names are sent, each once per page load:
+     beers-criteria-checker/tab/<tab>/opened   a tab was shown (single or bulk)
+     beers-criteria-checker/tab/<tab>/used     something was typed or tapped on that tab
+     beers-criteria-checker/used               the first use of anything on the page
+   A small line at the bottom of the page shows the public totals (Page views, Times used).
+   It appears only after "Allow adding visitor counts on your website" is turned on in GoatCounter settings.
+   Set CODE to "" to turn counting off. Counting is skipped when the browser sends Do Not Track. */
+(function () {
+  var CODE = "KenMillerDPT";
+  var CALCULATOR = "beers-criteria-checker";
+
+  var dnt = navigator.doNotTrack === "1" || window.doNotTrack === "1";
+  if (!CODE) return;
+  var counting = !dnt;
+
+  var queue = [], seen = {};
+  function send(name) {
+    try { window.goatcounter.count({ path: name, title: name, event: true }); } catch (e) {}
+  }
+  function track(name) {
+    var ev = CALCULATOR + "/" + name;
+    if (!counting || seen[ev]) return;
+    seen[ev] = true;
+    if (window.goatcounter && typeof window.goatcounter.count === "function") send(ev);
+    else queue.push(ev);
+  }
+
+  var gc = document.createElement("script");
+  gc.async = true;
+  gc.src = "https://gc.zgo.at/count.js";
+  gc.setAttribute("data-goatcounter", "https://" + CODE + ".goatcounter.com/count");
+  gc.onload = function () { while (queue.length) send(queue.shift()); showTally(); };
+  if (counting) document.head.appendChild(gc); else showTally();
+
+  // Visible tally. Reads the public counts back from GoatCounter and shows them at the bottom of the page.
+  // A number is shown only when GoatCounter returns one, so the line stays hidden if the setting is off.
+  function readCount(path, done) {
+    try {
+      var x = new XMLHttpRequest();
+      x.open("GET", "https://" + CODE + ".goatcounter.com/counter/" + encodeURIComponent(path) + ".json");
+      x.onload = function () {
+        var n = null;
+        try { if (x.status === 200) n = parseInt(String(JSON.parse(x.responseText).count).replace(/[^0-9]/g, ""), 10); } catch (e) {}
+        done(n > 0 ? n : null);
+      };
+      x.onerror = function () { done(null); };
+      x.send();
+    } catch (e) { done(null); }
+  }
+  function showTally() {
+    var path = location.pathname;
+    try { if (window.goatcounter && window.goatcounter.get_data) path = window.goatcounter.get_data().p || path; } catch (e) {}
+    var views = null, uses = null, pending = 2;
+    function finish() {
+      if (--pending) return;
+      var parts = [];
+      if (views) parts.push("Page views: " + views.toLocaleString("en-US"));
+      if (uses) parts.push("Times used: " + uses.toLocaleString("en-US"));
+      if (!parts.length) return;
+      var box = document.createElement("p");
+      box.className = "ct-tally";
+      box.style.cssText = "margin:18px 0 6px;text-align:center;font-size:13px;opacity:.8";
+      box.textContent = parts.join("  \u00b7  ");
+      (document.querySelector("main") || document.body).appendChild(box);
+    }
+    readCount(path, function (n) { views = n; finish(); });
+    readCount(CALCULATOR + "/used", function (n) { uses = n; finish(); });
+  }
+
+  // Which tab: each tab button already calls switchTab('<id>'), which gives a plain id ("single" or "bulk").
+  function tabId(btn) {
+    var m = /switchTab\('([a-z0-9_-]{1,30})'/i.exec((btn && btn.getAttribute && btn.getAttribute("onclick")) || "");
+    return m ? m[1].toLowerCase() : "";
+  }
+  var active = document.querySelector(".tab-btn.active");
+  if (tabId(active)) track("tab/" + tabId(active) + "/opened");
+  var bar = document.querySelector(".tab-bar");
+  if (bar) bar.addEventListener("click", function (e) {
+    var b = e.target && e.target.closest ? e.target.closest(".tab-btn") : null;
+    var id = tabId(b);
+    if (id) track("tab/" + id + "/opened");
+  }, true);
+
+  // Used: typing or tapping inside a tab's panel. Capture phase, so the page's inline handlers cannot hide it.
+  function onUse(e) {
+    var t = e.target, panel = t && t.closest ? t.closest(".tab-panel") : null;
+    if (!panel) return;
+    if (e.type === "click") {
+      var b = t.closest("button");
+      if (!b || b.classList.contains("btn-secondary")) return;
+    }
+    var id = (panel.id || "").replace(/^panel-/, "").replace(/[^a-z0-9_-]/gi, "").toLowerCase().slice(0, 30);
+    track("used");
+    if (id) track("tab/" + id + "/used");
+  }
+  ["click", "input", "change"].forEach(function (type) { document.addEventListener(type, onUse, true); });
+})();
 </script>
 </body>
 </html>
